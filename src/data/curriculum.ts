@@ -1,4 +1,5 @@
 import type { ModuleId, SkillDef, TemplateId } from '../engine/types';
+import type { Rng } from '../engine/rng';
 import { type MulBandId, mulCore, mulFacts } from '../engine/generators/facts/mulTable';
 import { cubeCore, cubeFacts, squareCore, squareFacts } from '../engine/generators/facts/powers';
 import { fracCore, fracFacts } from '../engine/generators/facts/fracPercent';
@@ -8,7 +9,7 @@ import { generateRoundAdd } from '../engine/generators/strategies/roundAdd';
 import { generateDistributive } from '../engine/generators/strategies/distributive';
 import { generateCompensateMul } from '../engine/generators/strategies/compensateMul';
 import { generateFriendly } from '../engine/generators/strategies/friendly';
-import { multiplyCore } from '../engine/generators/multiply';
+import { type Op, opCore } from '../engine/generators/operations';
 
 export interface ModuleInfo {
   id: ModuleId;
@@ -21,6 +22,13 @@ export interface ModuleInfo {
 }
 
 export const MODULES: ModuleInfo[] = [
+  {
+    id: 'basics',
+    letter: '★',
+    title: 'Operații de bază',
+    description: 'Cum aduni, scazi, înmulțești și împarți în minte. Citești lecția, apoi exersezi în rubrica Operații.',
+    available: true,
+  },
   {
     id: 'facts',
     letter: 'A',
@@ -294,23 +302,124 @@ export const SKILLS: SkillDef[] = [
   },
 ];
 
-/** Rubrica „Înmulțiri”: exerciții la alegere (tabelă + limită). Nu apare în harta abilităților. */
-export const CUSTOM_MUL_ID = 'mul.custom';
-export const CUSTOM_MUL: SkillDef = {
-  id: CUSTOM_MUL_ID,
-  module: 'facts',
-  kind: 'strategy',
-  title: 'Înmulțiri la alegere',
-  short: 'Tabelele și limita alese de tine',
-  prerequisites: [],
-  // folosit doar ca rezervă (ex. pentru comparații); sesiunea își generează singură perechile
-  generate: (rng) => multiplyCore(rng.int(2, 10), rng.int(2, 100), rng),
-  templates: { direct: 1 },
-  targetMs: (d) => 2200 + 9000 * d,
+// ───────────── Operații de bază (rubrica „Operații”) ─────────────
+// Nu intră în sesiunea zilnică: exercițiile se configurează în rubrica Operații, iar aici sunt lecțiile.
+
+export const OP_SKILL_ID: Record<Op, string> = {
+  add: 'op.add',
+  sub: 'op.sub',
+  // id păstrat din prima versiune, ca istoricul să rămână legat de abilitate
+  mul: 'mul.custom',
+  div: 'op.div',
 };
 
+export const OP_TITLE: Record<Op, string> = { add: 'Adunări', sub: 'Scăderi', mul: 'Înmulțiri', div: 'Împărțiri' };
+
+const opSkill = (op: Op, short: string, lesson: SkillDef['lesson'], example: (rng: Rng) => [number, number], target: (d: number) => number): SkillDef => ({
+  id: OP_SKILL_ID[op],
+  module: 'basics',
+  kind: 'strategy',
+  title: OP_TITLE[op],
+  short,
+  prerequisites: [],
+  practiceRoute: `ops/${op}`,
+  lesson,
+  generate: (rng) => opCore(op, ...example(rng), rng),
+  templates: { direct: 1 },
+  targetMs: target,
+});
+
+export const OP_SKILLS: SkillDef[] = [
+  opSkill(
+    'add',
+    'De la stânga la dreapta, completând până la zece',
+    {
+      paragraphs: [
+        'În minte aduni de la stânga la dreapta: întâi zecile, apoi unitățile. Așa ții minte un singur număr, care tot crește.',
+        '47 + 38: pornești de la numărul mare, 47 + 30 = 77, apoi 77 + 8 = 85.',
+        'Când treci peste zece, completezi întâi până la numărul rotund: 48 + 7 = 48 + 2 + 5 = 55. Cei 7 i-ai despărțit în 2 (cât lipsea până la 50) și 5.',
+        'Dacă unul dintre numere e aproape de un număr rotund, rotunjești și corectezi: 67 + 29 = 67 + 30 − 1 = 96.',
+        'La numere mari, aceeași idee pe ordine: 2475 + 1360 = 3475 + 300 + 60 = 3835.',
+      ],
+      tips: [
+        'Perechi care fac 10: 1+9 · 2+8 · 3+7 · 4+6 · 5+5',
+        'Începe mereu cu numărul mai mare: 8 + 47 = 47 + 8',
+        '+9 = +10 − 1   ·   +99 = +100 − 1',
+        'Verificare: rezultat − unul dintre numere = celălalt',
+      ],
+    },
+    (rng) => [rng.int(21, 99), rng.int(12, 89)],
+    (d) => 2000 + 8000 * d,
+  ),
+  opSkill(
+    'sub',
+    'Pe bucăți, coborând până la numărul rotund',
+    {
+      paragraphs: [
+        'Scazi tot pe bucăți, de la stânga: 85 − 38 = 85 − 30 − 8 = 55 − 8 = 47.',
+        'Când treci sub zece, cobori întâi până la numărul rotund: 53 − 7 = 53 − 3 − 4 = 46. Cei 7 i-ai despărțit în 3 (până la 50) și 4.',
+        'Altă metodă: numeri în sus de la numărul mic. 62 − 47: de la 47 la 50 sunt 3, de la 50 la 62 sunt 12, deci 15. E metoda casierilor, foarte bună pentru rest.',
+        'Aproape de rotund: 145 − 98 = 145 − 100 + 2 = 47. Ai scăzut 2 în plus, așa că îi adaugi înapoi.',
+      ],
+      tips: [
+        '−9 = −10 + 1   ·   −99 = −100 + 1',
+        'Diferența nu se schimbă dacă muți ambele numere la fel: 62 − 47 = 65 − 50 = 15',
+        'Verificare: rezultat + ce ai scăzut = numărul de la care ai pornit',
+      ],
+    },
+    (rng) => {
+      const a = rng.int(40, 199);
+      return [a, rng.int(12, a - 5)];
+    },
+    (d) => 2200 + 8000 * d,
+  ),
+  opSkill(
+    'mul',
+    'Desparți numărul mare pe ordine',
+    {
+      paragraphs: [
+        'Desparți numărul mare pe ordine și înmulțești fiecare bucată: 7 × 54 = 7 × 50 + 7 × 4 = 350 + 28 = 378.',
+        'Începi mereu cu bucata cea mai mare. Restul se adaugă la un total pe care îl ții minte.',
+        'La numere de trei cifre, la fel: 6 × 347 = 1800 + 240 + 42 = 2082.',
+        'Lângă un număr rotund, compensezi: 7 × 49 = 7 × 50 − 7 = 350 − 7 = 343.',
+        'Tabla până la 10 trebuie să fie instantanee, pentru că toate celelalte înmulțiri se sprijină pe ea. O exersezi în rubrica Operații cu „până la 10”.',
+      ],
+      tips: [
+        '×5 = ×10 ÷ 2   ·   ×9 = ×10 − ×1   ·   ×11 = ×10 + ×1',
+        '×4 = dublezi de două ori   ·   ×8 = de trei ori',
+        'Ordinea nu contează: 54 × 7 = 7 × 54',
+        'Verificare rapidă: ultima cifră din 7 × 54 e ultima cifră din 7 × 4 = 28, deci 8',
+      ],
+    },
+    (rng) => [rng.int(3, 9), rng.int(13, 99)],
+    (d) => 2200 + 9000 * d,
+  ),
+  opSkill(
+    'div',
+    'Înmulțirea pe dos, pe bucăți',
+    {
+      paragraphs: [
+        'Împărțirea e înmulțirea pe dos: 378 ÷ 7 înseamnă „cu cât înmulțesc 7 ca să obțin 378?”. De aceea tabla înmulțirii e baza.',
+        'Desparți deîmpărțitul în bucăți care se împart ușor (chunking): 378 = 350 + 28, deci 350 ÷ 7 = 50, 28 ÷ 7 = 4, iar rezultatul e 50 + 4 = 54.',
+        'Bucățile bune sunt multipli rotunzi ai împărțitorului: 7 × 10 = 70, 7 × 50 = 350, 7 × 100 = 700. Cauți cel mai mare care încape.',
+        'Când împărțitorul se descompune, împarți pe rând: 672 ÷ 16 = 672 ÷ 2 ÷ 8 = 336 ÷ 8 = 42.',
+      ],
+      tips: [
+        '÷5 = ×2 ÷ 10   (240 ÷ 5 = 480 ÷ 10 = 48)',
+        '÷25 = ×4 ÷ 100   (900 ÷ 25 = 3600 ÷ 100 = 36)',
+        'Verificare: rezultat × împărțitor = deîmpărțit',
+      ],
+    },
+    (rng) => {
+      const d = rng.int(3, 9);
+      return [d * rng.int(12, 99), d];
+    },
+    (d) => 2500 + 9000 * d,
+  ),
+];
+
 export const SKILL_BY_ID: Record<string, SkillDef> = Object.fromEntries(
-  [...SKILLS, CUSTOM_MUL].map((s) => [s.id, s]),
+  [...SKILLS, ...OP_SKILLS].map((s) => [s.id, s]),
 );
 
 export function getSkill(id: string): SkillDef {

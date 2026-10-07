@@ -6,7 +6,7 @@ import { navigate } from '../lib/router';
 import { pct, secs } from '../lib/stats';
 import { Button, Card, Stat } from '../components/ui';
 import { MistakeList } from '../components/MistakeList';
-import { parseCmulKey } from '../../engine/generators/multiply';
+import { parseOpKey } from '../../engine/generators/operations';
 
 export function Results() {
   const r = useApp((s) => s.lastResult);
@@ -41,12 +41,14 @@ export function Results() {
     navigate('run', { replace: true });
   };
 
-  const replayPairs = r.mistakes.map((m) => parseCmulKey(m.key)).filter((p): p is [number, number] => p !== null);
+  const replayPairs = r.config.op
+    ? r.mistakes.map((m) => parseOpKey(m.key)?.pair).filter((p): p is [number, number] => !!p)
+    : [];
   const replay = () => {
-    if (!r.config.mul || !replayPairs.length) return;
+    if (!r.config.op || !replayPairs.length) return;
     useApp.getState().startSession({
-      mode: 'multiply',
-      mul: { ...r.config.mul, pairs: replayPairs },
+      mode: 'ops',
+      op: { ...r.config.op, pairs: replayPairs },
       // fiecare pereche greșită de 2 ori
       count: replayPairs.length * 2,
       seed: randomSeed(),
@@ -125,8 +127,8 @@ export function Results() {
       )}
 
       <div className="grid grid-cols-2 gap-2 pt-2">
-        <Button variant="secondary" onClick={() => navigate(r.mode === 'multiply' ? 'mul' : '', { replace: true })}>
-          {r.mode === 'multiply' ? 'Înapoi' : 'Acasă'}
+        <Button variant="secondary" onClick={() => navigate(r.config.op ? `ops/${r.config.op.op}` : '', { replace: true })}>
+          {r.config.op ? 'Înapoi' : 'Acasă'}
         </Button>
         <Button onClick={again}>{r.mode === 'today' ? 'Încă o rundă' : 'Din nou'}</Button>
       </div>

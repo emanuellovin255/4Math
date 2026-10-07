@@ -1,6 +1,6 @@
 import type { Rng } from './rng';
 
-export type ModuleId = 'facts' | 'decomp' | 'patterns' | 'estimate' | 'memory';
+export type ModuleId = 'basics' | 'facts' | 'decomp' | 'patterns' | 'estimate' | 'memory';
 export type InputMode = 'int' | 'decimal' | 'fraction';
 export type TemplateId = 'direct' | 'variant' | 'choice' | 'truefalse' | 'compare';
 
@@ -70,6 +70,8 @@ export interface SkillDef {
   short: string;
   prerequisites: string[];
   lesson?: Lesson;
+  /** Unde se exersează, dacă abilitatea are o rubrică proprie (ex. „ops/add”). */
+  practiceRoute?: string;
   /** Doar pentru fapte: lista completă, în ordinea de introducere. */
   facts?: string[];
   coreForFact?(factKey: string, rng: Rng): Core;

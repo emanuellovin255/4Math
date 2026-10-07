@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { getKV, setKV } from './db/db';
 import type { SessionConfig } from './engine/session';
 import type { Step } from './engine/types';
+import type { Op } from './engine/generators/operations';
 
 export type Pace = 'relaxed' | 'normal' | 'fast';
 
@@ -12,10 +13,16 @@ export interface Settings {
   sound: boolean;
   haptics: boolean;
   keypad: 'phone' | 'calculator';
-  /** Ultima alegere din rubrica Înmulțiri. */
-  mulTables: number[];
-  mulUpTo: number;
-  mulCount: number;
+  /** Ultima alegere din rubrica Operații, separat pentru fiecare operație. */
+  ops: Record<Op, OpSettings>;
+}
+
+export interface OpSettings {
+  /** Listă goală = „oricare”. */
+  numbers: number[];
+  upTo: number;
+  /** 0 = nelimitat, -1 = 60 de secunde. */
+  count: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -25,9 +32,12 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   haptics: true,
   keypad: 'phone',
-  mulTables: [7],
-  mulUpTo: 10,
-  mulCount: 20,
+  ops: {
+    add: { numbers: [9], upTo: 100, count: 20 },
+    sub: { numbers: [7], upTo: 100, count: 20 },
+    mul: { numbers: [7], upTo: 10, count: 20 },
+    div: { numbers: [7], upTo: 10, count: 20 },
+  },
 };
 
 export const PACE_FACTOR: Record<Pace, number> = { relaxed: 1.5, normal: 1, fast: 0.75 };
@@ -88,7 +98,7 @@ export const useApp = create<AppState>((set, get) => ({
   lastResult: null,
   async init() {
     const saved = await getKV<Partial<Settings>>('settings', {});
-    set({ settings: { ...DEFAULT_SETTINGS, ...saved }, ready: true });
+    set({ settings: { ...DEFAULT_SETTINGS, ...saved, ops: { ...DEFAULT_SETTINGS.ops, ...(saved.ops ?? {}) } }, ready: true });
   },
   updateSettings(patch) {
     const settings = { ...get().settings, ...patch };

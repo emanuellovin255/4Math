@@ -7,6 +7,7 @@ import { db, getKV, loadProgress, setKV } from '../../db/db';
 import { type MistakeEntry, PACE_FACTOR, type SessionResult, type SkillDelta, useApp } from '../../store';
 import { navigate } from '../lib/router';
 import { median } from '../lib/stats';
+import { opBestKey, opLabel } from '../lib/ops';
 import { Icon, ProgressBar } from '../components/ui';
 import { type AnswerEvent, ProblemView } from '../run/ProblemView';
 import { GuidedView } from '../run/GuidedView';
@@ -25,7 +26,7 @@ const MODE_TITLE = {
   sprint: 'Sprint',
   guided: 'Ghidat',
   mistakes: 'Greșelile mele',
-  multiply: 'Înmulțiri',
+  ops: 'Operații',
 } as const;
 
 export function Runner() {
@@ -124,10 +125,10 @@ export function Runner() {
       config: cfg,
     };
 
-    const timedMul = cfg.mode === 'multiply' && (cfg.durationMs ?? 0) > 0;
-    if (cfg.mode === 'sprint' || timedMul) {
-      const key = timedMul
-        ? `best:mul:${[...(cfg.mul?.tables ?? [])].sort((a, b) => a - b).join('+')}:${cfg.mul?.upTo}`
+    const timedOps = cfg.mode === 'ops' && !!cfg.op && (cfg.durationMs ?? 0) > 0;
+    if (cfg.mode === 'sprint' || timedOps) {
+      const key = timedOps
+        ? opBestKey(cfg.op!)
         : `best:sprint:${cfg.skillIds?.length ? [...cfg.skillIds].sort().join('+') : 'mix'}`;
       const best = await getKV<number>(key, 0);
       result.sprintKey = key;
@@ -147,7 +148,7 @@ export function Runner() {
           total: scored.length,
           correct,
           skillIds: result.skillIds,
-          score: cfg.mode === 'sprint' || timedMul ? correct : undefined,
+          score: cfg.mode === 'sprint' || timedOps ? correct : undefined,
         });
       }
       await setKV('recent', session.recent.toJSON());
@@ -262,7 +263,7 @@ export function Runner() {
 
   if (!cfg) return null;
 
-  const timed = cfg.mode === 'today' || cfg.mode === 'sprint' || (cfg.mode === 'multiply' && (cfg.durationMs ?? 0) > 0);
+  const timed = cfg.mode === 'today' || cfg.mode === 'sprint' || (cfg.mode === 'ops' && (cfg.durationMs ?? 0) > 0);
   const progress = timed
     ? elapsed() / (cfg.durationMs ?? 1)
     : cfg.count
@@ -270,10 +271,8 @@ export function Runner() {
       : 0;
   const remaining = timed ? Math.max(0, (cfg.durationMs ?? 0) - elapsed()) : 0;
   const segmentSkill =
-    cfg.mode === 'multiply' && cfg.mul
-      ? cfg.mul.pairs?.length
-        ? 'Înmulțiri · greșelile tale'
-        : `Înmulțiri cu ${cfg.mul.tables.join(', ')} · până la ${cfg.mul.upTo}`
+    cfg.mode === 'ops' && cfg.op
+      ? opLabel(cfg.op)
       : item?.type === 'problem'
         ? getSkill(item.problem.skillId).title
         : null;
@@ -320,7 +319,7 @@ export function Runner() {
             key={item.problem.uid}
             problem={item.problem}
             settings={settings}
-            quick={cfg.mode === 'sprint' || (cfg.mode === 'multiply' && (cfg.durationMs ?? 0) > 0)}
+            quick={cfg.mode === 'sprint' || (cfg.mode === 'ops' && (cfg.durationMs ?? 0) > 0)}
             onAnswer={(e) => onAnswer(item, e)}
             onNext={advance}
           />

@@ -13,7 +13,9 @@ import { PracticeSetup } from './screens/PracticeSetup';
 import { Mistakes } from './screens/Mistakes';
 import { Runner } from './screens/Runner';
 import { Results } from './screens/Results';
-import { Multiply } from './screens/Multiply';
+import { OpsMenu, OpsScreen } from './screens/Ops';
+import { OP_ORDER } from './lib/ops';
+import type { Op } from '../engine/generators/operations';
 
 export function App() {
   const ready = useApp((s) => s.ready);
@@ -33,8 +35,11 @@ export function App() {
   let screen;
   switch (path) {
     case 'mul':
-      screen = <Multiply />;
+    case 'ops': {
+      const op = (path === 'mul' ? 'mul' : parts[1]) as Op | undefined;
+      screen = op && OP_ORDER.includes(op) ? <OpsScreen key={op} op={op} /> : <OpsMenu />;
       break;
+    }
     case 'learn':
       screen = <Learn />;
       break;

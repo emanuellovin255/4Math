@@ -5,10 +5,10 @@ import { RecentKeys } from './recent';
 import { type FactState, newFactState, reviewFact } from './srs';
 import { type SkillState, applySkillResult } from './rating';
 import { type Progress, factSummary, isPracticed, isUnlocked, skillStateOf } from './progress';
-import { CUSTOM_MUL_ID, FACT_INTAKE_ORDER, FOCUS_ORDER, SKILLS, WARMUP_SKILLS, getSkill } from '../data/curriculum';
-import { type MulConfig, MulDeck, mulDifficulty, multiplyCore, parseCmulKey } from './generators/multiply';
+import { FACT_INTAKE_ORDER, FOCUS_ORDER, OP_SKILL_ID, SKILLS, WARMUP_SKILLS, getSkill } from '../data/curriculum';
+import { type Op, type OpConfig, OpDeck, opCore, opDifficulty, parseOpKey } from './generators/operations';
 
-export type SessionMode = 'today' | 'practice' | 'sprint' | 'guided' | 'mistakes' | 'multiply';
+export type SessionMode = 'today' | 'practice' | 'sprint' | 'guided' | 'mistakes' | 'ops';
 export type SegmentId = 'warmup' | 'facts' | 'focus' | 'mix';
 
 export interface MistakeItem {
@@ -27,8 +27,8 @@ export interface SessionConfig {
   /** today / sprint: durata în ms. */
   durationMs?: number;
   mistakes?: MistakeItem[];
-  /** Rubrica „Înmulțiri”: tabelele alese și limita. */
-  mul?: MulConfig;
+  /** Rubrica „Operații”: operația, numerele alese și limita. */
+  op?: OpConfig;
   seed: number;
 }
 
@@ -90,7 +90,7 @@ export class Session {
   private intakeRR = 0;
   private cycle: string[] = [];
   private mistakes: MistakeItem[];
-  private mulDeck: MulDeck | null = null;
+  private opDeck: OpDeck | null = null;
 
   constructor(
     readonly cfg: SessionConfig,
@@ -103,7 +103,7 @@ export class Session {
     this.focusSkillId = chooseFocus(progress);
     this.factQueue = dueFacts(progress, now).map((s) => s.factKey);
     this.mistakes = cfg.mistakes?.slice() ?? [];
-    if (cfg.mul) this.mulDeck = new MulDeck(cfg.mul, this.rng);
+    if (cfg.op) this.opDeck = new OpDeck(cfg.op, this.rng);
   }
 
   get servedCount() {
@@ -117,9 +117,9 @@ export class Session {
   /** Următorul element sau null când sesiunea s-a terminat. */
   next(elapsedMs: number): SessionItem | null {
     const { mode, durationMs = 0, count = 0 } = this.cfg;
-    const timed = mode === 'today' || mode === 'sprint' || (mode === 'multiply' && durationMs > 0);
+    const timed = mode === 'today' || mode === 'sprint' || (mode === 'ops' && durationMs > 0);
     if (timed && elapsedMs >= durationMs) return null;
-    if ((mode === 'practice' || mode === 'guided' || (mode === 'multiply' && !timed)) && count > 0 && this.served >= count && !this.pending.length) {
+    if ((mode === 'practice' || mode === 'guided' || (mode === 'ops' && !timed)) && count > 0 && this.served >= count && !this.pending.length) {
       return null;
     }
 
@@ -137,15 +137,15 @@ export class Session {
         return this.serve(this.problemFor(this.nextFromCycle(), { templates: SPRINT_TEMPLATES }));
       case 'guided':
         return this.serve(this.problemFor(this.cfg.skillIds?.[0] ?? this.focusSkillId, { guided: true }));
-      case 'multiply':
-        return this.serve(this.mulItem(this.mulDeck!.next()));
+      case 'ops':
+        return this.serve(this.opItem(this.cfg.op!.op, this.opDeck!.next()));
       case 'mistakes': {
         const m = this.mistakes.shift();
         if (!m) {
           return this.requeue.length ? this.serve(this.requeue.shift()!.item()) : null;
         }
-        const pair = m.key ? parseCmulKey(m.key) : null;
-        if (pair) return this.serve(this.mulItem(pair));
+        const parsed = m.key ? parseOpKey(m.key) : null;
+        if (parsed) return this.serve(this.opItem(parsed.op, parsed.pair));
         return this.serve(this.problemFor(m.skillId, { factKey: m.factKey, difficulty: m.difficulty }));
       }
     }
@@ -183,12 +183,12 @@ export class Session {
     this.progress.skills.set(skill.id, skillState);
 
     // greșeala revine peste 2–3 itemi: același fapt, sau aceeași strategie cu alte numere
-    const timedMul = this.cfg.mode === 'multiply' && (this.cfg.durationMs ?? 0) > 0;
-    const pair = this.cfg.mode === 'multiply' ? parseCmulKey(problem.key) : null;
-    if (!correct && pair && !timedMul) {
-      // la înmulțiri revine exact aceeași pereche, ca s-o fixezi
-      this.requeue.push({ at: this.served + 2 + this.rng.int(0, 1), item: () => this.mulItem(pair) });
-    } else if (!correct && this.cfg.mode !== 'sprint' && !timedMul) {
+    const timedOps = this.cfg.mode === 'ops' && (this.cfg.durationMs ?? 0) > 0;
+    const parsed = this.cfg.mode === 'ops' || this.cfg.mode === 'mistakes' ? parseOpKey(problem.key) : null;
+    if (!correct && parsed && !timedOps) {
+      // la operații revine exact aceeași pereche, ca s-o fixezi
+      this.requeue.push({ at: this.served + 2 + this.rng.int(0, 1), item: () => this.opItem(parsed.op, parsed.pair) });
+    } else if (!correct && this.cfg.mode !== 'sprint' && !timedOps) {
       const at = this.served + 2 + this.rng.int(0, 1);
       const factKey = problem.factKey;
       const difficulty = problem.difficulty;
@@ -210,11 +210,11 @@ export class Session {
 
   // ───────────────────────── interne ─────────────────────────
 
-  private mulItem([table, n]: [number, number]): SessionItem {
-    const skill = getSkill(CUSTOM_MUL_ID);
+  private opItem(op: Op, [a, b]: [number, number]): SessionItem {
+    const skill = getSkill(OP_SKILL_ID[op]);
     const problem = buildProblem(skill, this.rng, {
-      difficulty: mulDifficulty(Math.max(table, n)),
-      core: multiplyCore(table, n, this.rng),
+      difficulty: opDifficulty(op, a, b),
+      core: opCore(op, a, b, this.rng),
       templates: { direct: 1 },
       paceFactor: this.settings.paceFactor,
     });

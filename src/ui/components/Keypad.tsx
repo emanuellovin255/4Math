@@ -61,33 +61,16 @@ export function Keypad({ mode, value, onChange, onSubmit, onSkip, layout, disabl
 
   const rows = layout === 'phone' ? [['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']] : [['7', '8', '9'], ['4', '5', '6'], ['1', '2', '3']];
   const special = mode === 'decimal' ? ',' : mode === 'fraction' ? '/' : null;
-  const keyCls =
-    'flex h-14 items-center justify-center rounded-2xl text-2xl font-semibold select-none transition active:scale-95 active:bg-border';
-
-  const Key = ({ k, className, children, label }: { k: string; className?: string; children?: ReactNode; label?: string }) => (
-    <button
-      type="button"
-      aria-label={label ?? k}
-      onPointerDown={(e) => {
-        e.preventDefault();
-        press(k);
-      }}
-      className={cx(keyCls, 'bg-surface-2 text-fg', className)}
-    >
-      {children ?? k}
-    </button>
-  );
-
   return (
     <div className={cx('grid grid-cols-4 gap-2', disabled && 'pointer-events-none opacity-60')}>
       {rows[0].map((k) => (
-        <Key key={k} k={k} />
+        <KeyButton key={k} k={k} onPress={press} />
       ))}
-      <Key k="back" label="Șterge">
+      <KeyButton k="back" label="Șterge" onPress={press}>
         <Icon name="backspace" />
-      </Key>
+      </KeyButton>
       {rows[1].map((k) => (
-        <Key key={k} k={k} />
+        <KeyButton key={k} k={k} onPress={press} />
       ))}
       <button
         type="button"
@@ -96,12 +79,12 @@ export function Keypad({ mode, value, onChange, onSubmit, onSkip, layout, disabl
           e.preventDefault();
           if (!disabled) onSubmit();
         }}
-        className={cx(keyCls, 'row-span-3 h-auto bg-accent text-accent-fg')}
+        className={cx(KEY_CLS, 'row-span-3 h-auto bg-accent text-accent-fg')}
       >
         <Icon name="check" className="h-8 w-8" />
       </button>
       {rows[2].map((k) => (
-        <Key key={k} k={k} />
+        <KeyButton key={k} k={k} onPress={press} />
       ))}
       <button
         type="button"
@@ -109,12 +92,32 @@ export function Keypad({ mode, value, onChange, onSubmit, onSkip, layout, disabl
           e.preventDefault();
           if (!disabled) onSkip?.();
         }}
-        className={cx(keyCls, 'bg-transparent text-sm font-medium text-muted', !onSkip && 'invisible')}
+        className={cx(KEY_CLS, 'bg-transparent text-sm font-medium text-muted', !onSkip && 'invisible')}
       >
         Nu știu
       </button>
-      <Key k="0" />
-      {special ? <Key k={special} label={special === ',' ? 'virgulă' : 'fracție'} /> : <div />}
+      <KeyButton k="0" onPress={press} />
+      {special ? <KeyButton k={special} label={special === ',' ? 'virgulă' : 'fracție'} onPress={press} /> : <div />}
     </div>
+  );
+}
+
+const KEY_CLS =
+  'flex h-14 items-center justify-center rounded-2xl text-2xl font-semibold select-none transition active:scale-95 active:bg-border';
+
+/** Tastă stabilă (definită în afara randării), ca să nu se recreeze la fiecare tic de cronometru. */
+function KeyButton({ k, label, onPress, children }: { k: string; label?: string; onPress(k: string): void; children?: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-label={label ?? k}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        onPress(k);
+      }}
+      className={cx(KEY_CLS, 'bg-surface-2 text-fg')}
+    >
+      {children ?? k}
+    </button>
   );
 }

@@ -307,30 +307,45 @@ describe('sesiunea zilnică', () => {
   });
 });
 
-describe('rubrica Înmulțiri', () => {
-  it('respectă tabela și limita, iar pașii duc la rezultat', async () => {
-    const { MulDeck, multiplyCore } = await import('./generators/multiply');
-    for (const [tables, upTo] of [
-      [[7], 10],
-      [[7], 100],
-      [[3, 17], 1000],
-      [[25], 50],
-    ] as [number[], number][]) {
-      const rng = createRng(upTo);
-      const deck = new MulDeck({ tables, upTo }, rng);
+describe('rubrica Operații', () => {
+  it('respectă numerele și limita, iar pașii duc la rezultat', async () => {
+    const { OpDeck, opCore, evalOp } = await import('./generators/operations');
+    type Op = 'add' | 'sub' | 'mul' | 'div';
+    const cases: [Op, number[], number][] = [
+      ['mul', [7], 10],
+      ['mul', [7], 100],
+      ['mul', [3, 17], 1000],
+      ['mul', [], 30],
+      ['div', [7], 10],
+      ['div', [7, 13], 100],
+      ['div', [], 1000],
+      ['add', [9], 100],
+      ['add', [], 10000],
+      ['sub', [7], 100],
+      ['sub', [99], 50],
+      ['sub', [], 1000],
+    ];
+    for (const [op, numbers, upTo] of cases) {
+      const rng = createRng(upTo + numbers.length);
+      const deck = new OpDeck({ op, numbers, upTo }, rng);
       const seen = new Set<string>();
       for (let i = 0; i < 400; i++) {
-        const [t, n] = deck.next();
-        expect(tables).toContain(t);
-        expect(n).toBeGreaterThanOrEqual(2);
-        expect(n).toBeLessThanOrEqual(upTo);
-        const core = multiplyCore(t, n, rng);
-        expect(evalExpr(core.prompt)).toBe(t * n);
-        checkSteps(core.steps, t * n);
+        const [a, b] = deck.next();
+        const v = evalOp(op, a, b);
+        expect(Number.isInteger(v), `${op} ${a} ${b}`).toBe(true);
+        expect(v).toBeGreaterThanOrEqual(0);
+        if (numbers.length) {
+          expect(numbers).toContain(op === 'mul' ? a : b);
+          if (op === 'mul' || op === 'div') expect(op === 'mul' ? b : v).toBeLessThanOrEqual(upTo);
+          if (op === 'add') expect(a).toBeLessThanOrEqual(upTo);
+        }
+        const core = opCore(op, a, b, rng);
+        expect(Math.abs(evalExpr(core.prompt)! - v)).toBeLessThan(1e-9);
+        checkSteps(core.steps, v);
         seen.add(core.key);
       }
-      // la intervale mici trec toate combinațiile înainte de repetare
-      if (tables.length * (upTo - 1) <= 400) expect(seen.size).toBe(tables.length * (upTo - 1));
+      const size = deck.size();
+      if (size <= 400) expect(seen.size, `${op} ${numbers} ${upTo}`).toBe(size);
     }
   });
 });

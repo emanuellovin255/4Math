@@ -1,4 +1,4 @@
-import { MODULES, SKILLS } from '../../data/curriculum';
+import { MODULES, OP_SKILLS, SKILLS } from '../../data/curriculum';
 import { factSummary, isUnlocked, skillProgress, skillStateOf } from '../../engine/progress';
 import { levelOf } from '../../engine/rating';
 import { useProgress } from '../lib/hooks';
@@ -12,7 +12,7 @@ export function Learn() {
     <div className="space-y-6">
       <PageHeader title="Învață" subtitle="Harta abilităților, în ordinea recomandată" />
       {MODULES.map((m) => {
-        const skills = SKILLS.filter((s) => s.module === m.id);
+        const skills = m.id === 'basics' ? OP_SKILLS : SKILLS.filter((s) => s.module === m.id);
         return (
           <section key={m.id} className="space-y-2">
             <div className="flex items-baseline gap-2">
@@ -37,7 +37,7 @@ export function Learn() {
                     }
                   }
                   return (
-                    <Card key={s.id} onClick={() => navigate(`skill/${s.id}`)} className={locked ? 'opacity-70' : ''}>
+                    <Card key={s.id} onClick={() => navigate(s.practiceRoute ? `lesson/${s.id}` : `skill/${s.id}`)} className={locked ? 'opacity-70' : ''}>
                       <div className="flex items-start gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 font-semibold">

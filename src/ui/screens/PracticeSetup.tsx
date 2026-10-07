@@ -24,7 +24,7 @@ export function PracticeSetup() {
     <div className="space-y-5 pb-28">
       <PageHeader title="Practică liberă" subtitle="Combină orice abilități" back={() => navigate('')} />
 
-      {MODULES.filter((m) => m.available).map((m) => (
+      {MODULES.filter((m) => m.available && m.id !== 'basics').map((m) => (
         <section key={m.id}>
           <div className="mb-2 flex items-baseline justify-between">
             <h2 className="font-semibold">
