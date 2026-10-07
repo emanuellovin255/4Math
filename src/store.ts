@@ -5,6 +5,19 @@ import type { Step } from './engine/types';
 import type { Op } from './engine/generators/operations';
 
 export type Pace = 'relaxed' | 'normal' | 'fast';
+export type Theme = 'light' | 'dark' | 'auto';
+
+/** Aplică tema pe <html> și o ține minte și în localStorage (citită din index.html la pornire). */
+export function applyTheme(theme: Theme) {
+  document.documentElement.dataset.theme = theme;
+  const dark = theme === 'dark' || (theme === 'auto' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0b1020' : '#f5f6fb');
+  try {
+    localStorage.setItem('4math.theme', theme);
+  } catch {
+    /* fără stocare: tema rămâne doar pentru sesiunea curentă */
+  }
+}
 
 export interface Settings {
   dailyGoalMin: number;
@@ -13,6 +26,7 @@ export interface Settings {
   sound: boolean;
   haptics: boolean;
   keypad: 'phone' | 'calculator';
+  theme: Theme;
   /** Ultima alegere din rubrica Operații, separat pentru fiecare operație. */
   ops: Record<Op, OpSettings>;
 }
@@ -32,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   haptics: true,
   keypad: 'phone',
+  theme: 'light',
   ops: {
     add: { numbers: [9], upTo: 100, count: 20 },
     sub: { numbers: [7], upTo: 100, count: 20 },
@@ -98,10 +113,13 @@ export const useApp = create<AppState>((set, get) => ({
   lastResult: null,
   async init() {
     const saved = await getKV<Partial<Settings>>('settings', {});
-    set({ settings: { ...DEFAULT_SETTINGS, ...saved, ops: { ...DEFAULT_SETTINGS.ops, ...(saved.ops ?? {}) } }, ready: true });
+    const settings = { ...DEFAULT_SETTINGS, ...saved, ops: { ...DEFAULT_SETTINGS.ops, ...(saved.ops ?? {}) } };
+    applyTheme(settings.theme);
+    set({ settings, ready: true });
   },
   updateSettings(patch) {
     const settings = { ...get().settings, ...patch };
+    if (patch.theme) applyTheme(patch.theme);
     set({ settings });
     void setKV('settings', settings).catch(() => undefined);
   },

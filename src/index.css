@@ -25,8 +25,34 @@
   color-scheme: light;
 }
 
+/* Tema: data-theme="light" | "dark" | "auto" pe <html> (setată din Setări). */
+:root[data-theme='dark'] {
+  --bg: #0b1020;
+  --surface: #131a2e;
+  --surface-2: #1c2541;
+  --fg: #e8ecf8;
+  --muted: #8b95b5;
+  --border: #263052;
+  --accent: #818cf8;
+  --accent-soft: #252c5c;
+  --accent-fg: #0b1020;
+  --good: #4ade80;
+  --good-soft: #133524;
+  --bad: #f87171;
+  --bad-soft: #3d1a1f;
+  --warn: #fbbf24;
+  --lvl-none: #222b47;
+  --lvl-0: #dc2626;
+  --lvl-1: #ea580c;
+  --lvl-2: #ca8a04;
+  --lvl-3: #65a30d;
+  --lvl-4: #16a34a;
+  --lvl-5: #15803d;
+  color-scheme: dark;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root[data-theme='auto'] {
     --bg: #0b1020;
     --surface: #131a2e;
     --surface-2: #1c2541;

@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { exportBackup, importBackup, requestPersistence, resetAll } from '../../db/db';
-import { type Pace, useApp } from '../../store';
+import { type Pace, type Theme, useApp } from '../../store';
 import { Button, Card, Chip, PageHeader } from '../components/ui';
 
 export function Settings() {
@@ -49,6 +49,19 @@ export function Settings() {
       <PageHeader title="Setări" />
 
       <Card className="space-y-4">
+        <Row title="Temă">
+          {(
+            [
+              ['light', '☀️ Luminos'],
+              ['dark', '🌙 Întunecat'],
+              ['auto', 'Ca telefonul'],
+            ] as [Theme, string][]
+          ).map(([v, l]) => (
+            <Chip key={v} active={settings.theme === v} onClick={() => update({ theme: v })}>
+              {l}
+            </Chip>
+          ))}
+        </Row>
         <Row title="Obiectiv zilnic" hint="Durata antrenamentului de azi">
           {[5, 10, 15, 20].map((m) => (
             <Chip key={m} active={settings.dailyGoalMin === m} onClick={() => update({ dailyGoalMin: m })}>

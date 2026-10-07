@@ -25,11 +25,15 @@ export function TabBar({ current }: { current: string }) {
   return (
     <>
       {sheet && (
-        <div className="fixed inset-0 z-30" role="dialog" aria-label="Alege operația">
-          <button aria-label="Închide" className="absolute inset-0 bg-black/40" onClick={() => setSheet(false)} />
-          <div className="safe-bottom slide-up absolute inset-x-0 bottom-0 mx-auto max-w-md rounded-t-3xl border-t border-border bg-bg px-4 pt-3 pb-20">
-            <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-border" />
-            <div className="mb-3 text-lg font-bold">Ce exersezi?</div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Alege operația">
+          <button aria-label="Închide" className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={() => setSheet(false)} />
+          <div className="pop relative max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-3xl border border-border bg-bg p-4 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-lg font-bold">Ce exersezi?</div>
+              <button aria-label="Închide" onClick={() => setSheet(false)} className="-mr-1 rounded-full p-1.5 text-muted hover:bg-surface-2">
+                <Icon name="close" className="h-5 w-5" />
+              </button>
+            </div>
             <OpsPicker
               onPick={(op) => {
                 setSheet(false);
