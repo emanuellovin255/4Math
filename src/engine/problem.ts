@@ -7,6 +7,8 @@ import type { RecentKeys } from './recent';
 export interface BuildOptions {
   difficulty: number;
   factKey?: string;
+  /** Problema „brută” gata construită (ex. perechea aleasă în rubrica Înmulțiri). */
+  core?: Core;
   /** Suprascrie ponderile șabloanelor (ex. sprint fără comparații, ghidat doar direct). */
   templates?: Partial<Record<TemplateId, number>>;
   paceFactor?: number;
@@ -50,7 +52,7 @@ export function makeCore(skill: SkillDef, rng: Rng, difficulty: number, factKey?
 
 export function buildProblem(skill: SkillDef, rng: Rng, opts: BuildOptions): Problem {
   const { difficulty } = opts;
-  const core = makeCore(skill, rng, difficulty, opts.factKey, opts.recent);
+  const core = opts.core ?? makeCore(skill, rng, difficulty, opts.factKey, opts.recent);
   const weights: Partial<Record<TemplateId, number>> = { ...(opts.templates ?? skill.templates) };
   if (!core.variants?.length) delete weights.variant;
   if (skill.kind === 'fact') delete weights.compare;

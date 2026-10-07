@@ -8,6 +8,7 @@ import { generateRoundAdd } from '../engine/generators/strategies/roundAdd';
 import { generateDistributive } from '../engine/generators/strategies/distributive';
 import { generateCompensateMul } from '../engine/generators/strategies/compensateMul';
 import { generateFriendly } from '../engine/generators/strategies/friendly';
+import { multiplyCore } from '../engine/generators/multiply';
 
 export interface ModuleInfo {
   id: ModuleId;
@@ -293,7 +294,24 @@ export const SKILLS: SkillDef[] = [
   },
 ];
 
-export const SKILL_BY_ID: Record<string, SkillDef> = Object.fromEntries(SKILLS.map((s) => [s.id, s]));
+/** Rubrica „Înmulțiri”: exerciții la alegere (tabelă + limită). Nu apare în harta abilităților. */
+export const CUSTOM_MUL_ID = 'mul.custom';
+export const CUSTOM_MUL: SkillDef = {
+  id: CUSTOM_MUL_ID,
+  module: 'facts',
+  kind: 'strategy',
+  title: 'Înmulțiri la alegere',
+  short: 'Tabelele și limita alese de tine',
+  prerequisites: [],
+  // folosit doar ca rezervă (ex. pentru comparații); sesiunea își generează singură perechile
+  generate: (rng) => multiplyCore(rng.int(2, 10), rng.int(2, 100), rng),
+  templates: { direct: 1 },
+  targetMs: (d) => 2200 + 9000 * d,
+};
+
+export const SKILL_BY_ID: Record<string, SkillDef> = Object.fromEntries(
+  [...SKILLS, CUSTOM_MUL].map((s) => [s.id, s]),
+);
 
 export function getSkill(id: string): SkillDef {
   const s = SKILL_BY_ID[id];

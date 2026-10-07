@@ -13,6 +13,7 @@ import { PracticeSetup } from './screens/PracticeSetup';
 import { Mistakes } from './screens/Mistakes';
 import { Runner } from './screens/Runner';
 import { Results } from './screens/Results';
+import { Multiply } from './screens/Multiply';
 
 export function App() {
   const ready = useApp((s) => s.ready);
@@ -31,6 +32,9 @@ export function App() {
 
   let screen;
   switch (path) {
+    case 'mul':
+      screen = <Multiply />;
+      break;
     case 'learn':
       screen = <Learn />;
       break;

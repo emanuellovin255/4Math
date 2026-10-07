@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getKV, setKV } from './db/db';
 import type { SessionConfig } from './engine/session';
+import type { Step } from './engine/types';
 
 export type Pace = 'relaxed' | 'normal' | 'fast';
 
@@ -11,6 +12,10 @@ export interface Settings {
   sound: boolean;
   haptics: boolean;
   keypad: 'phone' | 'calculator';
+  /** Ultima alegere din rubrica Înmulțiri. */
+  mulTables: number[];
+  mulUpTo: number;
+  mulCount: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -20,6 +25,9 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   haptics: true,
   keypad: 'phone',
+  mulTables: [7],
+  mulUpTo: 10,
+  mulCount: 20,
 };
 
 export const PACE_FACTOR: Record<Pace, number> = { relaxed: 1.5, normal: 1, fast: 0.75 };
@@ -30,6 +38,17 @@ export interface SkillDelta {
   correct: number;
   levelBefore?: number;
   levelAfter?: number;
+}
+
+export interface MistakeEntry {
+  key: string;
+  prompt: string;
+  question?: string;
+  userText: string;
+  answerText: string;
+  steps: Step[];
+  /** De câte ori a fost greșită în sesiune. */
+  times: number;
 }
 
 export interface SessionResult {
@@ -44,6 +63,7 @@ export interface SessionResult {
   newFacts: number;
   promotedFacts: number;
   bySkill: SkillDelta[];
+  mistakes: MistakeEntry[];
   sprintKey?: string;
   sprintBest?: number;
   isRecord?: boolean;

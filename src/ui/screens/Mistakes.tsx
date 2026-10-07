@@ -27,10 +27,10 @@ export function Mistakes() {
     const seen = new Set<string>();
     const items: MistakeItem[] = [];
     for (const a of wrong) {
-      const key = a.factKey ?? `${a.skillId}:${a.id}`;
+      const key = a.factKey ?? a.key ?? `${a.skillId}:${a.id}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      items.push({ skillId: a.skillId, factKey: a.factKey, difficulty: a.difficulty });
+      items.push({ skillId: a.skillId, factKey: a.factKey, key: a.key, difficulty: a.difficulty });
       if (items.length >= 20) break;
     }
     startRun({ mode: 'mistakes', mistakes: items });

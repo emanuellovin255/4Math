@@ -11,6 +11,8 @@ export interface Attempt {
   sessionId: string;
   skillId: string;
   factKey?: string;
+  /** Identitatea problemei (ex. „cmul:7:54”), pentru statistici pe perechi. */
+  key?: string;
   template: TemplateId;
   prompt: string;
   question?: string;

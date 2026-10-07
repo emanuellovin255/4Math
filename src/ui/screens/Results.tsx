@@ -5,6 +5,8 @@ import { useApp } from '../../store';
 import { navigate } from '../lib/router';
 import { pct, secs } from '../lib/stats';
 import { Button, Card, Stat } from '../components/ui';
+import { MistakeList } from '../components/MistakeList';
+import { parseCmulKey } from '../../engine/generators/multiply';
 
 export function Results() {
   const r = useApp((s) => s.lastResult);
@@ -22,7 +24,7 @@ export function Results() {
   const accuracy = r.total ? r.correct / r.total : null;
   const minutes = Math.max(1, Math.round(r.activeMs / 60000));
   const headline =
-    r.mode === 'sprint'
+    r.sprintKey
       ? r.isRecord
         ? 'Record nou! 🏆'
         : 'Sprint încheiat'
@@ -39,11 +41,24 @@ export function Results() {
     navigate('run', { replace: true });
   };
 
+  const replayPairs = r.mistakes.map((m) => parseCmulKey(m.key)).filter((p): p is [number, number] => p !== null);
+  const replay = () => {
+    if (!r.config.mul || !replayPairs.length) return;
+    useApp.getState().startSession({
+      mode: 'multiply',
+      mul: { ...r.config.mul, pairs: replayPairs },
+      // fiecare pereche greșită de 2 ori
+      count: replayPairs.length * 2,
+      seed: randomSeed(),
+    });
+    navigate('run', { replace: true });
+  };
+
   return (
     <div className="safe-top mx-auto max-w-md space-y-4 px-4 pb-10">
       <div className="pop pt-6 text-center">
         <div className="text-3xl font-bold">{headline}</div>
-        {r.mode === 'sprint' ? (
+        {r.sprintKey ? (
           <div className="mt-3">
             <div className="text-6xl font-bold text-accent">{r.correct}</div>
             <div className="text-muted">corecte în {Math.round((r.config.durationMs ?? 60000) / 1000)} s · record: {r.sprintBest}</div>
@@ -92,9 +107,26 @@ export function Results() {
         </Card>
       )}
 
+      {r.mistakes.length > 0 ? (
+        <Card>
+          <div className="mb-1 flex items-baseline justify-between">
+            <div className="font-semibold">Ce ai greșit ({r.mistakes.length})</div>
+            <div className="text-xs text-muted">atinge pentru rezolvare</div>
+          </div>
+          <MistakeList items={r.mistakes} />
+          {replayPairs.length > 0 && (
+            <Button className="mt-3 w-full" onClick={replay}>
+              Repetă doar greșelile
+            </Button>
+          )}
+        </Card>
+      ) : (
+        r.total > 0 && <Card className="text-center font-semibold text-good">Nicio greșeală. 👌</Card>
+      )}
+
       <div className="grid grid-cols-2 gap-2 pt-2">
-        <Button variant="secondary" onClick={() => navigate('', { replace: true })}>
-          Acasă
+        <Button variant="secondary" onClick={() => navigate(r.mode === 'multiply' ? 'mul' : '', { replace: true })}>
+          {r.mode === 'multiply' ? 'Înapoi' : 'Acasă'}
         </Button>
         <Button onClick={again}>{r.mode === 'today' ? 'Încă o rundă' : 'Din nou'}</Button>
       </div>

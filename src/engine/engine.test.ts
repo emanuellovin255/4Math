@@ -306,3 +306,31 @@ describe('sesiunea zilnică', () => {
     expect(n).toBe(15);
   });
 });
+
+describe('rubrica Înmulțiri', () => {
+  it('respectă tabela și limita, iar pașii duc la rezultat', async () => {
+    const { MulDeck, multiplyCore } = await import('./generators/multiply');
+    for (const [tables, upTo] of [
+      [[7], 10],
+      [[7], 100],
+      [[3, 17], 1000],
+      [[25], 50],
+    ] as [number[], number][]) {
+      const rng = createRng(upTo);
+      const deck = new MulDeck({ tables, upTo }, rng);
+      const seen = new Set<string>();
+      for (let i = 0; i < 400; i++) {
+        const [t, n] = deck.next();
+        expect(tables).toContain(t);
+        expect(n).toBeGreaterThanOrEqual(2);
+        expect(n).toBeLessThanOrEqual(upTo);
+        const core = multiplyCore(t, n, rng);
+        expect(evalExpr(core.prompt)).toBe(t * n);
+        checkSteps(core.steps, t * n);
+        seen.add(core.key);
+      }
+      // la intervale mici trec toate combinațiile înainte de repetare
+      if (tables.length * (upTo - 1) <= 400) expect(seen.size).toBe(tables.length * (upTo - 1));
+    }
+  });
+});

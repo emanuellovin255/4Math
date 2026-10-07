@@ -4,7 +4,7 @@ import { RecentKeys } from '../../engine/recent';
 import { AUTOMATED_BOX } from '../../engine/srs';
 import { getSkill } from '../../data/curriculum';
 import { db, getKV, loadProgress, setKV } from '../../db/db';
-import { PACE_FACTOR, type SessionResult, type SkillDelta, useApp } from '../../store';
+import { type MistakeEntry, PACE_FACTOR, type SessionResult, type SkillDelta, useApp } from '../../store';
 import { navigate } from '../lib/router';
 import { median } from '../lib/stats';
 import { Icon, ProgressBar } from '../components/ui';
@@ -25,6 +25,7 @@ const MODE_TITLE = {
   sprint: 'Sprint',
   guided: 'Ghidat',
   mistakes: 'Greșelile mele',
+  multiply: 'Înmulțiri',
 } as const;
 
 export function Runner() {
@@ -35,6 +36,7 @@ export function Runner() {
   const sessionRef = useRef<Session | null>(null);
   const startSnapshot = useRef<{ ratings: Map<string, number>; boxes: Map<string, number> } | null>(null);
   const log = useRef<LogEntry[]>([]);
+  const mistakes = useRef<Map<string, MistakeEntry>>(new Map());
   const sessionId = useRef(`s${Date.now().toString(36)}`);
   const startedAt = useRef(Date.now());
   const clock = useRef({ start: performance.now(), pausedAt: 0, paused: 0 });
@@ -118,11 +120,15 @@ export function Runner() {
       newFacts,
       promotedFacts,
       bySkill: [...bySkillMap.values()],
+      mistakes: [...mistakes.current.values()],
       config: cfg,
     };
 
-    if (cfg.mode === 'sprint') {
-      const key = `best:sprint:${cfg.skillIds?.length ? [...cfg.skillIds].sort().join('+') : 'mix'}`;
+    const timedMul = cfg.mode === 'multiply' && (cfg.durationMs ?? 0) > 0;
+    if (cfg.mode === 'sprint' || timedMul) {
+      const key = timedMul
+        ? `best:mul:${[...(cfg.mul?.tables ?? [])].sort((a, b) => a - b).join('+')}:${cfg.mul?.upTo}`
+        : `best:sprint:${cfg.skillIds?.length ? [...cfg.skillIds].sort().join('+') : 'mix'}`;
       const best = await getKV<number>(key, 0);
       result.sprintKey = key;
       result.sprintBest = Math.max(best, correct);
@@ -141,7 +147,7 @@ export function Runner() {
           total: scored.length,
           correct,
           skillIds: result.skillIds,
-          score: cfg.mode === 'sprint' ? correct : undefined,
+          score: cfg.mode === 'sprint' || timedMul ? correct : undefined,
         });
       }
       await setKV('recent', session.recent.toJSON());
@@ -210,6 +216,18 @@ export function Runner() {
       });
     }
     const p = it.problem;
+    if (!e.correct && !it.guided) {
+      const prev = mistakes.current.get(p.key);
+      mistakes.current.set(p.key, {
+        key: p.key,
+        prompt: p.prompt || (p.choices ?? []).join(' vs '),
+        question: p.question,
+        userText: e.userText,
+        answerText: p.answerText,
+        steps: p.steps,
+        times: (prev?.times ?? 0) + 1,
+      });
+    }
     void Promise.all([
       r.fact ? db.factStates.put(r.fact) : null,
       db.skillStates.put(r.skill),
@@ -218,6 +236,7 @@ export function Runner() {
         sessionId: sessionId.current,
         skillId: p.skillId,
         factKey: p.factKey,
+        key: p.key,
         template: p.template,
         prompt: p.prompt || (p.choices ?? []).join(' vs '),
         question: p.question,
@@ -243,14 +262,21 @@ export function Runner() {
 
   if (!cfg) return null;
 
-  const timed = cfg.mode === 'today' || cfg.mode === 'sprint';
+  const timed = cfg.mode === 'today' || cfg.mode === 'sprint' || (cfg.mode === 'multiply' && (cfg.durationMs ?? 0) > 0);
   const progress = timed
     ? elapsed() / (cfg.durationMs ?? 1)
     : cfg.count
       ? (sessionRef.current?.servedCount ?? 0) / cfg.count
       : 0;
   const remaining = timed ? Math.max(0, (cfg.durationMs ?? 0) - elapsed()) : 0;
-  const segmentSkill = item?.type === 'problem' ? getSkill(item.problem.skillId).title : null;
+  const segmentSkill =
+    cfg.mode === 'multiply' && cfg.mul
+      ? cfg.mul.pairs?.length
+        ? 'Înmulțiri · greșelile tale'
+        : `Înmulțiri cu ${cfg.mul.tables.join(', ')} · până la ${cfg.mul.upTo}`
+      : item?.type === 'problem'
+        ? getSkill(item.problem.skillId).title
+        : null;
 
   return (
     <div className="mx-auto flex h-dvh max-w-md flex-col px-4">
@@ -294,7 +320,7 @@ export function Runner() {
             key={item.problem.uid}
             problem={item.problem}
             settings={settings}
-            quick={cfg.mode === 'sprint'}
+            quick={cfg.mode === 'sprint' || (cfg.mode === 'multiply' && (cfg.durationMs ?? 0) > 0)}
             onAnswer={(e) => onAnswer(item, e)}
             onNext={advance}
           />
